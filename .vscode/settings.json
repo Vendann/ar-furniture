@@ -67,5 +67,6 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "ar-furniture.slnx"
+    "dotnet.defaultSolution": "ar-furniture.slnx",
+    "dotnet.enableWorkspaceBasedDevelopment": false
 }
