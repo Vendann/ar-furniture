@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b47e8b36c7874c85ab2d60613955faa4, type: 3}
+  m_Name: ProductCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::ARFurniture.ProductCatalog
+  products:
+  - name: "\u0414\u0438\u0432\u0430\u043D \u041B\u043E\u0444\u0442"
+    category: 0
+    price: 45990
+    image: {fileID: 21300000, guid: bba252ba1108f6b7db2d525d6d0b3215, type: 3}
+    prefab: {fileID: 5835969478974874805, guid: 82e2cdaea585cc82dae7c24e58cd6098, type: 3}
+  - name: "\u0414\u0438\u0432\u0430\u043D \u0421\u043A\u0430\u043D\u0434\u0438"
+    category: 0
+    price: 72990
+    image: {fileID: 21300000, guid: bb831d3d8d549b4d883d4ff20237d136, type: 3}
+    prefab: {fileID: 2366304432929067163, guid: d2a86b27ea31d7e99b6bc232daa8b89c, type: 3}
+  - name: "\u041A\u0440\u0435\u0441\u043B\u043E \u041D\u043E\u0440\u0434"
+    category: 1
+    price: 24990
+    image: {fileID: 21300000, guid: 94beb2adf842edbe1bd009c9b9003e0a, type: 3}
+    prefab: {fileID: 320583182687262083, guid: 3569aaf0b641c397b8af5ef38f1ceaaa, type: 3}
+  - name: "\u041A\u0440\u0435\u0441\u043B\u043E \u041A\u043E\u043C\u0444\u043E\u0440\u0442"
+    category: 1
+    price: 31990
+    image: {fileID: 21300000, guid: d66c7152c1467ff369b161327f0294b9, type: 3}
+    prefab: {fileID: 2272399612272287824, guid: 0f2cde1faef0be86e979cc87ef831b4a, type: 3}
+  - name: "\u0421\u0442\u043E\u043B \u042D\u043A\u043E"
+    category: 2
+    price: 18990
+    image: {fileID: 21300000, guid: 9b1504aa59df233ea8dfe82ee292fe89, type: 3}
+    prefab: {fileID: 4655449816279751739, guid: 6ebd743f0993e1331a7071474d959872, type: 3}
+  - name: "\u0421\u0442\u043E\u043B \u041E\u0441\u043B\u043E"
+    category: 2
+    price: 35990
+    image: {fileID: 21300000, guid: 552858bf6e2bcac289161ba8663e00d7, type: 3}
+    prefab: {fileID: 434966587728163337, guid: ad494db3518507b028a481717d6f34a3, type: 3}
