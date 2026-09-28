@@ -6,6 +6,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Unity.XR.CoreUtils;
 
 namespace ARFurniture
 {
@@ -21,6 +22,9 @@ namespace ARFurniture
         private RectTransform _content;
         private GameObject _catalogPanel;
         private GameObject _productPanel;
+        private GameObject _arPanel;
+        private ARPlacementController _arPlacement;
+        private UnityEngine.UI.Button _arButton;
         private UnityEngine.UI.Image _productImage;
         private TextMeshProUGUI _productName;
         private TextMeshProUGUI _productPrice;
@@ -71,6 +75,8 @@ namespace ARFurniture
             EnsureEventSystem();
             BuildCatalogPanel();
             BuildProductPanel();
+            BuildARPanel();
+            InitializeARPlacement();
             RefreshProducts();
         }
 
@@ -195,13 +201,36 @@ namespace ARFurniture
             _productPrice.color = Accent;
             SetRect(_productPrice.rectTransform, new Vector2(0, 0.29f), new Vector2(1, 0.36f), new Vector2(48, 0), new Vector2(-48, 0));
 
-            var arButton = CreateButton(_productPanel.transform, "AR Button", "Посмотреть в AR", null);
-            SetRect(arButton.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(1, 0), new Vector2(48, 174), new Vector2(-48, 274));
-            arButton.interactable = false;
+            _arButton = CreateButton(_productPanel.transform, "AR Button", "Посмотреть в AR", ShowAR);
+            SetRect(_arButton.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(1, 0), new Vector2(48, 174), new Vector2(-48, 274));
 
             var checkoutButton = CreateButton(_productPanel.transform, "Checkout Button", "Оформить", null);
             SetRect(checkoutButton.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(1, 0), new Vector2(48, 50), new Vector2(-48, 150));
             checkoutButton.interactable = false;
+        }
+
+        private void BuildARPanel()
+        {
+            _arPanel = CreatePanel("AR Panel", transform, Color.clear);
+            _arPanel.SetActive(false);
+
+            var back = CreateButton(_arPanel.transform, "Back Button", "‹ Товар", ShowProductPanel);
+            SetRect(back.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(0, 1), new Vector2(32, -116), new Vector2(290, -36));
+        }
+
+        private void InitializeARPlacement()
+        {
+            var origin = FindAnyObjectByType<XROrigin>();
+            if (origin == null)
+            {
+                _arButton.interactable = false;
+                Debug.LogError("XR Origin was not found in MainScene.");
+                return;
+            }
+
+            _arPlacement = origin.GetComponent<ARPlacementController>() ??
+                origin.gameObject.AddComponent<ARPlacementController>();
+            _arPlacement.Initialize();
         }
 
         private void SetCategory(ProductCategory? category)
@@ -268,6 +297,25 @@ namespace ARFurniture
         {
             _productPanel.SetActive(false);
             _catalogPanel.SetActive(true);
+        }
+
+        private void ShowAR()
+        {
+            if (_arPlacement == null || SelectedProduct?.prefab == null)
+            {
+                return;
+            }
+
+            _productPanel.SetActive(false);
+            _arPanel.SetActive(true);
+            _arPlacement.Enter(SelectedProduct.prefab);
+        }
+
+        private void ShowProductPanel()
+        {
+            _arPlacement.Exit();
+            _arPanel.SetActive(false);
+            _productPanel.SetActive(true);
         }
 
         private Slider CreateSlider(Transform parent)
