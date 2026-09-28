@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -10,6 +12,49 @@ using Unity.XR.CoreUtils;
 
 namespace ARFurniture
 {
+    public static class CheckoutValidation
+    {
+        public static bool IsComplete(params string[] values) =>
+            values != null &&
+            values.Length > 0 &&
+            Array.TrueForAll(values, value => !string.IsNullOrWhiteSpace(value));
+
+        public static string FormatPhone(string value)
+        {
+            var digits = Digits(value, 11);
+            var result = new StringBuilder(16);
+
+            for (var index = 0; index < digits.Length; index++)
+            {
+                if (index == 0) result.Append('+');
+                else if (index == 1 || index == 4) result.Append(' ');
+                else if (index == 7 || index == 9) result.Append('-');
+
+                result.Append(digits[index]);
+            }
+
+            return result.ToString();
+        }
+
+        public static string FormatExpiry(string value)
+        {
+            var digits = Digits(value, 4);
+            return digits.Length <= 2 ? digits : digits.Insert(2, "/");
+        }
+
+        private static string Digits(string value, int limit)
+        {
+            var result = new StringBuilder(limit);
+
+            for (var index = 0; index < (value?.Length ?? 0) && result.Length < limit; index++)
+            {
+                if (value[index] >= '0' && value[index] <= '9') result.Append(value[index]);
+            }
+
+            return result.ToString();
+        }
+    }
+
     public sealed class CatalogController : MonoBehaviour
     {
         private static readonly Color Background = new Color32(244, 241, 235, 255);
@@ -23,12 +68,19 @@ namespace ARFurniture
         private GameObject _catalogPanel;
         private GameObject _productPanel;
         private GameObject _arPanel;
+        private GameObject _checkoutPanel;
+        private GameObject _successPanel;
         private ARPlacementController _arPlacement;
         private UnityEngine.UI.Button _arButton;
+        private readonly List<TMP_InputField> _checkoutFields = new List<TMP_InputField>();
         private UnityEngine.UI.Image _productImage;
         private TextMeshProUGUI _productName;
         private TextMeshProUGUI _productPrice;
         private TextMeshProUGUI _priceLabel;
+        private TextMeshProUGUI _checkoutProductName;
+        private TextMeshProUGUI _checkoutProductPrice;
+        private TextMeshProUGUI _checkoutError;
+        private TextMeshProUGUI _successMessage;
         private ProductCategory? _category;
         private int _maximumPrice;
 
@@ -75,6 +127,8 @@ namespace ARFurniture
             EnsureEventSystem();
             BuildCatalogPanel();
             BuildProductPanel();
+            BuildCheckoutPanel();
+            BuildSuccessPanel();
             BuildARPanel();
             InitializeARPlacement();
             RefreshProducts();
@@ -204,9 +258,68 @@ namespace ARFurniture
             _arButton = CreateButton(_productPanel.transform, "AR Button", "Посмотреть в AR", ShowAR);
             SetRect(_arButton.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(1, 0), new Vector2(48, 174), new Vector2(-48, 274));
 
-            var checkoutButton = CreateButton(_productPanel.transform, "Checkout Button", "Оформить", null);
+            var checkoutButton = CreateButton(_productPanel.transform, "Checkout Button", "Оформить", ShowCheckout);
             SetRect(checkoutButton.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(1, 0), new Vector2(48, 50), new Vector2(-48, 150));
-            checkoutButton.interactable = false;
+        }
+
+        private void BuildCheckoutPanel()
+        {
+            _checkoutPanel = CreatePanel("Checkout Panel", transform, Background);
+            _checkoutPanel.SetActive(false);
+
+            var back = CreateButton(_checkoutPanel.transform, "Back Button", "‹ Товар", ShowProductPanel);
+            SetRect(back.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(0, 1), new Vector2(32, -116), new Vector2(290, -36));
+
+            var title = CreateText("Title", _checkoutPanel.transform, "Оформление", 48, FontStyles.Bold);
+            title.alignment = TextAlignmentOptions.MidlineRight;
+            SetRect(title.rectTransform, new Vector2(0, 1), Vector2.one, new Vector2(320, -116), new Vector2(-48, -36));
+
+            _checkoutProductName = CreateText("Product Name", _checkoutPanel.transform, string.Empty, 36, FontStyles.Bold);
+            SetRect(_checkoutProductName.rectTransform, new Vector2(0, 1), Vector2.one, new Vector2(48, -194), new Vector2(-48, -136));
+
+            _checkoutProductPrice = CreateText("Product Price", _checkoutPanel.transform, string.Empty, 32);
+            _checkoutProductPrice.color = Accent;
+            SetRect(_checkoutProductPrice.rectTransform, new Vector2(0, 1), Vector2.one, new Vector2(48, -244), new Vector2(-48, -194));
+
+            var note = CreateText("Privacy Note", _checkoutPanel.transform, "Демо: данные не отправляются и не сохраняются", 23);
+            note.color = new Color32(92, 98, 102, 255);
+            SetRect(note.rectTransform, new Vector2(0, 1), Vector2.one, new Vector2(48, -292), new Vector2(-48, -250));
+
+            _checkoutFields.Add(CreateInputField(_checkoutPanel.transform, "Name Input", "Имя", "Введите имя", TMP_InputField.ContentType.Name, 80, -326));
+            _checkoutFields.Add(CreateInputField(_checkoutPanel.transform, "Phone Input", "Телефон", "+7 000 000-00-00", TMP_InputField.ContentType.Custom, 16, -506, CheckoutValidation.FormatPhone));
+            _checkoutFields.Add(CreateInputField(_checkoutPanel.transform, "Address Input", "Адрес", "Введите адрес", TMP_InputField.ContentType.Standard, 160, -686));
+            _checkoutFields.Add(CreateInputField(_checkoutPanel.transform, "Card Input", "Номер карты", "0000 0000 0000 0000", TMP_InputField.ContentType.IntegerNumber, 16, -866));
+            _checkoutFields.Add(CreateInputField(_checkoutPanel.transform, "Expiry Input", "Срок действия", "ММ/ГГ", TMP_InputField.ContentType.Custom, 5, -1046, CheckoutValidation.FormatExpiry));
+            _checkoutFields.Add(CreateInputField(_checkoutPanel.transform, "CVV Input", "CVV", "000", TMP_InputField.ContentType.IntegerNumber, 3, -1226));
+
+            _checkoutError = CreateText("Validation Error", _checkoutPanel.transform, string.Empty, 24);
+            _checkoutError.color = new Color32(176, 48, 48, 255);
+            _checkoutError.alignment = TextAlignmentOptions.Center;
+            SetRect(_checkoutError.rectTransform, Vector2.zero, new Vector2(1, 0), new Vector2(48, 174), new Vector2(-48, 226));
+
+            var payButton = CreateButton(_checkoutPanel.transform, "Pay Button", "Оплатить", SubmitCheckout);
+            SetRect(payButton.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1, 0), new Vector2(48, 50), new Vector2(-48, 150));
+        }
+
+        private void BuildSuccessPanel()
+        {
+            _successPanel = CreatePanel("Success Panel", transform, Background);
+            _successPanel.SetActive(false);
+
+            var title = CreateText("Title", _successPanel.transform, "Заказ оформлен", 54, FontStyles.Bold);
+            title.alignment = TextAlignmentOptions.Center;
+            SetRect(title.rectTransform, new Vector2(0, 0.58f), new Vector2(1, 0.72f), new Vector2(48, 0), new Vector2(-48, 0));
+
+            _successMessage = CreateText("Message", _successPanel.transform, string.Empty, 32);
+            _successMessage.alignment = TextAlignmentOptions.Center;
+            _successMessage.overflowMode = TextOverflowModes.Overflow;
+            SetRect(_successMessage.rectTransform, new Vector2(0, 0.36f), new Vector2(1, 0.58f), new Vector2(64, 0), new Vector2(-64, 0));
+
+            var productButton = CreateButton(_successPanel.transform, "Product Button", "К товару", ShowProductPanel);
+            SetRect(productButton.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1, 0), new Vector2(48, 174), new Vector2(-48, 274));
+
+            var catalogButton = CreateButton(_successPanel.transform, "Catalog Button", "В каталог", ShowCatalog);
+            SetRect(catalogButton.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1, 0), new Vector2(48, 50), new Vector2(-48, 150));
         }
 
         private void BuildARPanel()
@@ -290,12 +403,20 @@ namespace ARFurniture
             _productName.text = product.name;
             _productPrice.text = FormatPrice(product.price);
             _catalogPanel.SetActive(false);
+            _checkoutPanel.SetActive(false);
+            _successPanel.SetActive(false);
+            _arPanel.SetActive(false);
             _productPanel.SetActive(true);
         }
 
         private void ShowCatalog()
         {
+            _arPlacement?.Exit();
+            ClearCheckout();
             _productPanel.SetActive(false);
+            _checkoutPanel.SetActive(false);
+            _successPanel.SetActive(false);
+            _arPanel.SetActive(false);
             _catalogPanel.SetActive(true);
         }
 
@@ -307,15 +428,119 @@ namespace ARFurniture
             }
 
             _productPanel.SetActive(false);
+            _checkoutPanel.SetActive(false);
+            _successPanel.SetActive(false);
             _arPanel.SetActive(true);
             _arPlacement.Enter(SelectedProduct.prefab);
         }
 
         private void ShowProductPanel()
         {
-            _arPlacement.Exit();
+            _arPlacement?.Exit();
+            ClearCheckout();
+            _catalogPanel.SetActive(false);
             _arPanel.SetActive(false);
+            _checkoutPanel.SetActive(false);
+            _successPanel.SetActive(false);
             _productPanel.SetActive(true);
+        }
+
+        private void ShowCheckout()
+        {
+            if (SelectedProduct == null)
+            {
+                return;
+            }
+
+            ClearCheckout();
+            _checkoutProductName.text = SelectedProduct.name;
+            _checkoutProductPrice.text = FormatPrice(SelectedProduct.price);
+            _productPanel.SetActive(false);
+            _checkoutPanel.SetActive(true);
+        }
+
+        private void SubmitCheckout()
+        {
+            var values = _checkoutFields.ConvertAll(field => field.text).ToArray();
+            if (!CheckoutValidation.IsComplete(values))
+            {
+                _checkoutError.text = "Заполните все обязательные поля";
+                return;
+            }
+
+            _successMessage.text = $"{SelectedProduct.name}\n{FormatPrice(SelectedProduct.price)}\n\nСпасибо!";
+            ClearCheckout();
+            _checkoutPanel.SetActive(false);
+            _successPanel.SetActive(true);
+        }
+
+        private void ClearCheckout()
+        {
+            foreach (var field in _checkoutFields)
+            {
+                field.SetTextWithoutNotify(string.Empty);
+            }
+
+            if (_checkoutError != null)
+            {
+                _checkoutError.text = string.Empty;
+            }
+        }
+
+        private TMP_InputField CreateInputField(
+            Transform parent,
+            string name,
+            string label,
+            string placeholder,
+            TMP_InputField.ContentType contentType,
+            int characterLimit,
+            float top,
+            Func<string, string> formatter = null)
+        {
+            var labelText = CreateText(name + " Label", parent, label, 26);
+            SetRect(labelText.rectTransform, new Vector2(0, 1), Vector2.one, new Vector2(48, top - 44), new Vector2(-48, top));
+
+            var fieldObject = CreateObject(name, parent);
+            SetRect(fieldObject.GetComponent<RectTransform>(), new Vector2(0, 1), Vector2.one, new Vector2(48, top - 142), new Vector2(-48, top - 54));
+            var background = fieldObject.AddComponent<UnityEngine.UI.Image>();
+            background.color = Surface;
+
+            var viewport = CreateObject("Text Area", fieldObject.transform);
+            SetRect(viewport.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, new Vector2(22, 8), new Vector2(-22, -8));
+            viewport.AddComponent<UnityEngine.UI.RectMask2D>();
+
+            var inputText = CreateText("Text", viewport.transform, string.Empty, 28);
+            inputText.overflowMode = TextOverflowModes.Overflow;
+            SetRect(inputText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            var placeholderText = CreateText("Placeholder", viewport.transform, placeholder, 28);
+            placeholderText.color = new Color32(142, 146, 148, 255);
+            SetRect(placeholderText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            var input = fieldObject.AddComponent<TMP_InputField>();
+            input.targetGraphic = background;
+            input.textViewport = viewport.GetComponent<RectTransform>();
+            input.textComponent = inputText;
+            input.placeholder = placeholderText;
+            input.contentType = contentType;
+            input.characterLimit = characterLimit;
+            input.lineType = TMP_InputField.LineType.SingleLine;
+
+            if (formatter != null)
+            {
+                input.characterValidation = TMP_InputField.CharacterValidation.Digit;
+                input.keyboardType = TouchScreenKeyboardType.NumberPad;
+                input.onValueChanged.AddListener(value =>
+                {
+                    var formatted = formatter(value);
+                    if (formatted == value) return;
+
+                    input.SetTextWithoutNotify(formatted);
+                    input.caretPosition = formatted.Length;
+                });
+            }
+
+            return input;
         }
 
         private Slider CreateSlider(Transform parent)
