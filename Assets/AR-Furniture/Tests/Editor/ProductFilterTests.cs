@@ -19,5 +19,21 @@ namespace ARFurniture.Tests
 
             CollectionAssert.AreEqual(new[] { "Дешёвый диван" }, result);
         }
+
+        [Test]
+        public void CheckoutRequiresEveryField()
+        {
+            Assert.IsFalse(CheckoutValidation.IsComplete("Анна", "+374", " ", "1234", "12/30", "123"));
+            Assert.IsTrue(CheckoutValidation.IsComplete("Анна", "+374", "Ереван", "1234", "12/30", "123"));
+        }
+
+        [Test]
+        public void CheckoutDigitMasksFollowTypedDigits()
+        {
+            Assert.AreEqual("+7 912 345-67-89", CheckoutValidation.FormatPhone("7a 912-345 67+89"));
+            Assert.AreEqual("+7 912", CheckoutValidation.FormatPhone("+7 912 "));
+            Assert.AreEqual("12/34", CheckoutValidation.FormatExpiry("1a2/34"));
+            Assert.AreEqual("12", CheckoutValidation.FormatExpiry("12/"));
+        }
     }
 }
